@@ -1,0 +1,141 @@
+#!/bin/bash
+
+##################################################################
+# Verify mask is right, rpm packages don't always account for this
+##################################################################
+umask 022
+
+# Source funtions
+. /etc/sysconfig/kona
+
+declare -r prog=${0##*/}
+declare -r long_opts="image:,instdir:,nodelete,rpmlist:,rpmdir:,stdin,update,help"
+declare -r short_opts="i:d:nr:suz:h"
+declare -r getopt="/usr/bin/getopt -u"
+declare -r usage="\
+\n\
+\n\
+USAGE: $prog [OPTIONS] --rpmlist the_list --rpmdir /path/to/rpms
+\n\
+Passing no other options will create an image in\n\
+/tftpboot/images/chaos.\n\
+\n\
+   -i, --image name             Name of the image you want created\n\
+                                Default name is chaos\n\
+\n\
+   -d, --rpmdir path            Directory that has the rpms in it\n\
+                                Full path to directory must be used\n\
+\n\
+   -n, --nodelete               Don't remove image before installing rpms\n\
+                                This will allow you to add or upgrade rpms\n\
+                                Default is to delete image before installing \n\
+                                rpms\n\
+\n\
+   -r, --rpmlist                File that contains the list of rpm to\n\
+                                be installed\n\
+\n\
+   -s, --stdin                  Rpms to be installed will be passed\n\
+                                via the command line. If no rpmdir path\n\
+                                is given, the full path to the rpm must\n\
+                                be provided\n\
+\n\
+   -u, --update                 Update rpms in image, Requires rpmdir\n\
+                                Will do a rpm -F in that directory\n\
+\n\
+   -z, --instdir dir            Alternate installation directory\n\
+                                Default dir is /tftpboot/images\n\
+\n\
+   -h, --help                   Display usage message\n"
+
+die () {
+    echo -e "$prog: $@" >&2
+    exit 1
+}
+
+[ $# -lt 1 ] && die "$usage"
+
+GETOPT=`$getopt -o $short_opts -l $long_opts -n $prog -- $@`
+
+if [ $? != 0 ] ; then
+    die "$usage"
+fi
+
+eval set -- "$GETOPT"
+while true; do
+    case "$1" in
+        -i|--image)        image=$2         ; shift 2 ;;
+        -d|--rpmdir)       rpmdir="$2"      ; shift 2 ;;
+        -n|--nodelete)     remove_image=0   ; shift   ;;
+        -r|--rpmlist)      rpmlist=$2       ; shift 2 ;;
+        -s|--stdin)        stdin=1          ; shift   ;;
+        -u|--update)       remove_image=0 ; update=1  ; shift   ;;
+        -z|--instdir)      inst_dir=$2       ; shift 2 ;;
+        -h|--help)         die "$usage"               ;;
+        --)                shift ; break              ;;
+        *)                 die "$usage"               ;;
+    esac
+done
+
+#####################################################
+# Make sure you are root, else there will be problems
+#####################################################
+check_root || exit $?
+
+imagedir=${inst_dir}/${image}
+
+#############################################
+# Verify rpmlist was specifed and is readable 
+# or standard in is being used
+#############################################
+[ -z "${rpmlist}" ] && [ -z "${stdin}" ] && [ -z "${update}" ] && die "$usage"
+if [ -n "${rpmlist}" ] && [ ! -r "${rpmlist}" ] ; then 
+  die "Unable to read ${rpmlist}"
+fi
+
+#########################################
+# Verify rpmdir was specifed and is there 
+# or assume path to rpm is included
+#########################################
+[ -z "${rpmdir}" ] && [ -z "${stdin}" ] && die "$usage"
+[ -z "${rpmdir}" ] && [ -n "${update}" ] && die "$usage"
+if [ -n "${rpmdir}" ] && [ ! -d "${rpmdir}" ] ; then
+  die "Unable to find directory ${rpmdir}"
+fi
+
+##################################
+# Build up list of rpms to install
+# and verify that they exist
+##################################
+if [ -n "${rpmlist}" ] ; then
+  packages=`cat ${rpmlist} | grep -v "^#" | sed s/$/*/ | paste -s -d ' '`
+fi
+if [ -n "${rpmdir}" ] ; then
+  tmplist=`for a in "$@" ; do basename $a | sed s/$/*/; done`
+  packages="${packages} ${tmplist}"
+else
+  tmplist=`for a in "$@" ; do echo $a | sed s/$/*/; done`
+  packages="${packages} ${tmplist}"
+fi
+
+verify_rpms || exit $EXIT_FAIL
+
+##########################################
+# get the image diretory ready for install
+##########################################
+prep_image_dir
+
+#################
+#create the image
+#################
+[ -n "${rpmdir}" ] && pushd ${rpmdir} > /dev/null 2>&1
+  if [ -n "${update}" ] ; then
+    rpm -Fvh --nosignature --root=${imagedir} *.rpm
+  else
+    rpm -Uvh --nosignature --root=${imagedir} ${packages}
+  fi
+[ -n "${rpmdir}" ] && popd > /dev/null 2>&1
+
+##########
+# Clean up
+##########
+image_clean_up

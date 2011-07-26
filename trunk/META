@@ -1,0 +1,9 @@
+##
+# $Id: META 10190 2010-11-29 15:58:20Z tdhooge $
+##
+# Metadata for RPM/TAR makefile targets
+##
+  Meta:		1
+  Name:		kona
+  Version:	0
+  Release:	16
