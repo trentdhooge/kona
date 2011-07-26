@@ -47,13 +47,6 @@ from the YUM repo called current.\n\
                                 Default is to delete image before installing \n\
                                 YUM groups or rpms\n\
 \n\
-   -q, --qemu size              Create qemu image of this size\n\
-                                'size' is the disk image size in bytes.\n\
-                                Optional suffixes\n\
-                                  'k' or 'K' (kilobyte, 1024),\n\
-                                  'M' (megabyte, 1024k),\n\
-                                  'G' (gigabyte, 1024M)\n\
-\n\
    -u, --update                 Update rpms in image, Does not install missing\n\
                                 rpms unless required for the update\n\
 \n\
@@ -71,6 +64,15 @@ from the YUM repo called current.\n\
                                 Default dir is /tftpboot/images\n\
 \n\
    -h, --help                   Display usage message\n"
+
+## for later when I get qemu images booting correctly
+##   -q, --qemu size              Create qemu image of this size\n\
+##                                'size' is the disk image size in bytes.\n\
+##                                Optional suffixes\n\
+##                                  'k' or 'K' (kilobyte, 1024),\n\
+##                                  'M' (megabyte, 1024k),\n\
+##                                  'G' (gigabyte, 1024M)\n\
+##\n\
 
 die () {
     echo -e "$prog: $@" >&2
