@@ -1,6 +1,6 @@
-Name:
-Version: 
-Release: 
+Name: kona
+Version: 0
+Release: 17
 Summary: Tool for creating chrooted images from rpms or yum
 License: LLNL
 Group: System Environment/Kernel
