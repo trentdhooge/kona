@@ -1,0 +1,3 @@
+KPURL=https://eris.llnl.gov/svn/chaos/private/kona
+# svn copy $KPURL/trunk $KPURL/tags/kona-0-1
+# svn delete $KPURL/tags/kona-0-1

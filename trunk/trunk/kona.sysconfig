@@ -1,0 +1,261 @@
+##
+## Functions for creating chroot'd image
+##
+
+declare -r EXIT_OK=0
+declare -r EXIT_FAIL=1
+declare -r EXIT_NOTRUN=2
+
+export TMP=/tmp
+export TMPDIR=/tmp
+
+# Default variables
+# directory that image will be built in
+inst_dir=/tftpboot/images
+# directory mounted with nodev option
+nodev=""
+# default, remove image
+remove_image=1
+# clean up cache and make new cache
+cache=""
+# get rpms from std in
+stdin=""
+# dir with rpms
+rpmdir=""
+# list of rpms to install
+rpmlist=""
+# passed to rpm to install
+packages=""
+# image name to create in inst_dir
+image="kona"
+# updating existing rpms?
+update=""
+# qemu image size, if defined, qemu image
+# will be created as ${image}.img and mounted on ${image}
+qemu_size=""
+
+# Usage: check_root
+# If user is not root, exit with NOTRUN.
+check_root()
+{
+  if [ $(id -u) -ne 0 ]; then
+    echo "$0: You must become root before creating image" >&2
+    return $EXIT_NOTRUN
+  fi
+  if [ $(id -g) -ne 0 ]; then
+    echo "$0: You must have root group id before creating image" >&2
+    return $EXIT_NOTRUN
+  fi
+}
+
+# Usage: umount_proc image
+# Make sure proc and dev is not mounted in the image directory
+umount_proc()
+{
+  umount -f ${inst_dir}/${image}/proc > /dev/null 2>&1
+  umount -f ${inst_dir}/${image}/dev > /dev/null 2>&1
+}
+
+# Usage: mount_proc image
+# Mount /proc in image directory
+mount_proc()
+{
+  mount -t proc none ${inst_dir}/${image}/proc
+}
+
+# Usage: remove_image_dir image
+# remove the image directory if requested
+remove_image_dir()
+{
+  if [ "${remove_image}" -eq 1 ] ; then
+    if [ -e "${inst_dir}/${image}" ] ; then
+      echo "Removing ${inst_dir}/${image}"
+      rm -rf ${inst_dir}/${image}
+    fi
+  fi
+}
+
+# Usage: make_image_files image
+# Create files that are required to build image
+make_image_files()
+{
+  rm -f ${inst_dir}/${image}/dev/null
+  mknod ${inst_dir}/${image}/dev/null c 1 3
+  chmod 666 ${inst_dir}/${image}/dev/null
+}
+ 
+# Usage: make_qemu_img
+# Create qemu ${image}.img and mount it on ${image}
+make_qemu_img()
+{
+  if [ -n "${qemu_size}" ] ; then
+
+    # remove old qemu image?
+    if [ "${remove_image}" -eq 1 ] ; then
+        rm -f "${inst_dir}/${image}.img"
+    fi
+
+    # if image don't exist create it
+    if [ ! -e "${inst_dir}/${image}.img" ] ; then
+      qemu-img create ${inst_dir}/${image}.img ${qemu_size} > /dev/null 2>&1 \
+      || return $EXIT_FAIL
+    fi
+
+    # partiton and format image if needed
+    if ( ! file ${inst_dir}/${image}.img | grep -q "boot sector" ) ; then
+
+      # partition file
+      losetup -f ${inst_dir}/${image}.img
+      loopy=`losetup -j ${inst_dir}/${image}.img | awk -F: '/loop/ {print $1}'`
+      sfdisk -D ${loopy} << EOF
+,,,*
+EOF
+      losetup -d ${loopy}
+      # mount image with offset to format partition
+      losetup --offset=32256 -f ${inst_dir}/${image}.img
+      loopy=`losetup -j ${inst_dir}/${image}.img | awk -F: '/loop/ {print $1}'`
+      mke2fs -F -L/ -j ${loopy} > /dev/null 2>&1
+      losetup -d ${loopy}
+    fi
+
+    # get image mounted
+    mkdir -p ${inst_dir}/${image}
+    mount -o loop,offset=32256 ${inst_dir}/${image}.img ${inst_dir}/${image} \
+    || return $EXIT_FAIL
+  fi
+}
+
+# Usage: make_image_dir
+# Create directories that are required to build image
+make_image_dir()
+{
+  mkdir -p ${inst_dir}/${image}/proc
+  mkdir -p ${inst_dir}/${image}/dev
+  mkdir -p ${inst_dir}/${image}/etc
+  mkdir -p ${inst_dir}/${image}/var/lib/{rpm,yum}
+  mkdir -p ${inst_dir}/${image}/var/lock/rpm
+  mkdir -p ${inst_dir}/${image}/var/log
+  mkdir -p ${inst_dir}/${image}/tmp/root
+  mkdir -p ${inst_dir}/${image}/var/tmp/root
+}
+
+# Usage: init_rpmdb image
+# Create rpm DB in image directory
+init_rpmdb()
+{
+  rpm --root ${inst_dir}/${image} --initdb
+}
+
+# Usage: check_nodev
+# Check if ${inst_dir} is mounted with nodev option
+# If so remount it with dev option
+check_nodev()
+{
+  baseimage="${inst_dir}/${image}"
+  while ( test -n ${baseimage} ) ; do
+    if ( mount |egrep -q "[[:space:]]${baseimage}[[:space:]]" ) 
+    then
+      if ( mount |egrep -q "[[:space:]]${baseimage}[[:space:]].*nodev.*" ) 
+      then
+        mount -o remount,dev ${baseimage}
+        nodev=${baseimage}
+        break
+      else
+        break
+      fi
+    elif [ "${baseimage}" = "/" ] ; then
+      break
+    else
+      baseimage=`dirname ${baseimage}`
+    fi
+  done
+}
+
+# Usage: mount_nodev
+# remount baseimage with nodev option
+mount_nodev()
+{
+  if [ ! -z "${nodev}" ] ; then
+    mount -o remount,nodev ${nodev}
+  fi
+}
+
+# Usage: prep_image_dir image
+# Call this function to get everything done
+prep_image_dir()
+{
+  check_root
+  umount_proc
+  remove_image_dir
+  make_qemu_img || return $EXIT_FAIL
+  make_image_dir
+  mount_proc
+  check_nodev
+  make_image_files
+  init_rpmdb
+}
+
+# Usage: image_clean_up image
+# Image clean up before tar'ing it up
+image_clean_up()
+{
+  check_root
+  umount_proc
+  # lastlog can sometime be a large sparse file
+  [ -e ${inst_dir}/${image}/var/log/lastlog ] && \
+  cat /dev/null > ${inst_dir}/${image}/var/log/lastlog
+
+  # clean up cache from yum
+  rm -rf ${inst_dir}/${image}/var/cache/yum/*
+  rm -rf ${inst_dir}/${image}/var/lib/yum/yumdb/*
+
+  # make sure rpm cache is ok
+  rm -f ${inst_dir}/${image}/var/lib/rpm/__*
+  if ( chroot ${inst_dir}/${image} which rpm > /dev/null 2>&1 ) ; then
+    chroot ${inst_dir}/${image} rpm --rebuilddb
+  fi
+
+  # Make sure ldconfig is run
+  if ( chroot ${inst_dir}/${image} which ldconfig > /dev/null 2>&1 ) ; then
+    chroot ${inst_dir}/${image} ldconfig
+  fi
+
+  # make qemu image bootable and unmount qemu image if required
+## if [ -n "${qemu_size}" ] ; then
+##   # copy grub.conf
+##   losetup -f ${inst_dir}/${image}.img
+##   loopy=`losetup -j ${inst_dir}/${image}.img |awk -F: '!/offset/ {print $1}'`
+##   echo "(hd0) ${loopy}" > ${inst_dir}/${image}/boot/grub/device.map
+##   mount --bind /dev ${inst_dir}/${image}/dev
+##   my_grub-install --no-floppy --root-directory=${inst_dir}/${image} ${loopy}
+##   umount ${inst_dir}/${image}/dev
+##   losetup -d ${loopy}
+##   umount ${inst_dir}/${image}
+## fi
+
+  # remount directory with nodev option if required
+  mount_nodev
+}
+
+# Usage: verify_rpms
+# verify that all the rpms that are asked for exist
+verify_rpms()
+{
+  [ -n "${rpmdir}" ] && pushd ${rpmdir} > /dev/null 2>&1
+  for r in ${packages} ; do
+      if [ ! -r "$r" ] && [ ! -h "$r" ] ; then
+        missing_rpm="${missing_rpm} $r"
+      fi
+  done
+  [ -n "${rpmdir}" ] && popd > /dev/null 2>&1
+
+  if [ ! -z "${missing_rpm}" ] ; then
+    echo ""
+    echo "MISSING RPMS"
+    for a in ${missing_rpm} ; do
+      echo "$a"
+    done
+    echo ""
+    return $EXIT_FAIL
+  fi
+}

@@ -1,0 +1,240 @@
+#!/bin/bash
+
+##################################################################
+# Verify mask is right, rpm packages don't always account for this
+##################################################################
+umask 022
+
+# Source funtions
+. /etc/sysconfig/kona
+
+declare -r prog=${0##*/}
+declare -r long_opts="cache:image:,instdir:,install_rpm,list:,version:,update,nodelete,yum_include:,repodir:,help,qemu:"
+declare -r short_opts="ci:d:rl:nv:uy:z:hq:"
+declare -r getopt="/usr/bin/getopt -u"
+declare -r usage="\
+\n\
+\n\
+USAGE: $prog [OPTIONS] yum_group(s)|rpm(s)
+\n\
+yum_groups and rpms are space delimited
+\n\
+Passing no options will create an image in\n\
+/tftpboot/images/kona with the yum group(s) or package(s) you specified\n\
+from the YUM repo called current.\n\
+\n\
+   -i, --image name             Name of the image you want created\n\
+                                Default name is kona\n\
+\n\
+   -c, --cache                  Clear and create yum cache\n\
+                                If you don't see what you expect, try this\n\
+\n\
+   -d, --repodir path           Directory of rpms that has a repo \n\
+                                A generic yum.conf file will be created to use\n\
+                                this direcory. Do not use with -y option.\n\
+                                Full path to directory must be used\n\
+\n\
+   -r, --install_rpm            Installing rpm(s), not specific YUM groups\n\
+                                Default is to install YUM groups\n\
+\n\
+   -l, --list repos|groups|rpms List repo, groups, or rpms\n\
+                                Current release is used by default,\n\
+                                pass -v option for other release version\n\
+\n\
+   -n, --nodelete               Don't remove image before installing rpms\n\
+                                This will allow you to add or upgrade \n\
+                                YUM groups or rpms\n\
+                                Default is to delete image before installing \n\
+                                YUM groups or rpms\n\
+\n\
+   -q, --qemu size              Create qemu image of this size\n\
+                                'size' is the disk image size in bytes.\n\
+                                Optional suffixes\n\
+                                  'k' or 'K' (kilobyte, 1024),\n\
+                                  'M' (megabyte, 1024k),\n\
+                                  'G' (gigabyte, 1024M)\n\
+\n\
+   -u, --update                 Update rpms in image, Does not install missing\n\
+                                rpms unless required for the update\n\
+\n\
+   -v, --version release        Chaos release version\n\
+                                example: 5.0-0\n\
+				No version will include all yum repos\n\
+				Specifying a version will only use that version\n\
+\n\
+   -y, --yum_include path       YUM include location to get repo \n\
+                                information from\n\
+				example: ftp://chaos.llnl.gov/chaos/chaos.repo\n\
+				example: file:///repo/chaos/chaos.repo\n\
+\n\
+   -z, --instdir dir            Alternate installation directory\n\
+                                Default dir is /tftpboot/images\n\
+\n\
+   -h, --help                   Display usage message\n"
+
+die () {
+    echo -e "$prog: $@" >&2
+    exit 1
+}
+
+[ $# -lt 1 ] && die "$usage"
+
+: ${version=""}
+: ${yum_include=""}
+: ${repodir=""}
+: ${install_rpm=""}
+source=/etc/kona/defaults
+yum_options=""
+yumconf=/tmp/kona.yumconf
+rm -f ${yumconf}
+
+
+GETOPT=`$getopt -o $short_opts -l $long_opts -n $prog -- $@`
+
+if [ $? != 0 ] ; then
+    die "$usage"
+fi
+
+eval set -- "$GETOPT"
+while true; do
+    case "$1" in
+        -i|--image)        image=$2         ; shift 2 ;;
+        -c|--cache)        cache=1          ; shift   ;;
+        -d|--repodir)      repodir="$2"     ; shift 2 ;;
+        -r|--rpm)          install_rpm=1    ; shift   ;;
+        -n|--nodelete)     remove_image=0   ; shift   ;;
+        -u|--update)       remove_image=0 ; update=1   ; shift   ;;
+        -q|--qemu)         qemu_size="$2"   ; shift 2 ;;
+        -l|--list)         list=$2          ; shift 2 ;;
+        -v|--version)      version=$2       ; shift 2 ;;
+        -y|--yum_include)  yum_include="$2" ; shift 2 ;;
+        -z|--instdir)      inst_dir=$2      ; shift 2 ;;
+        -h|--help)         die "$usage"               ;;
+        --)                shift ; break              ;;
+        *)                 die "$usage"               ;;
+    esac
+done
+
+
+#####################################################
+# Make sure you are root, else there will be problems
+#####################################################
+check_root || exit $?
+
+#############################################
+# using differnet yum repo if defined by user
+#############################################
+if [ -z "${repodir}" ] && [ -n "${yum_include}" ] ; then 
+  echo "include=${yum_include}" > ${yumconf}
+# using directory that has had createrepo run in it
+# if requested by user
+elif [ -n "${repodir}" ] ; then
+  if [ -d ${repodir}/repodata ] ; then
+    cat << EOF > ${yumconf}
+[generic]
+name=generic
+baseurl=file://${repodir}
+enable=1
+EOF
+  version="generic"
+  else
+    echo "${repodir} does not contain repodata"
+    exit 1
+  fi
+fi
+
+############################################
+# Source any defaults that may have been set
+############################################
+if [ -r ${source} ] ; then
+  . ${source}
+fi
+
+##########################################
+# dir that image is going to be created in
+##########################################
+imagedir=${inst_dir}/${image}
+
+# did we create a yum.conf, if so we need to use it
+if [ -r ${yumconf} ] ; then
+  yum_options="-c ${yumconf}"
+fi
+
+# if specific version is defined, disable all other
+# repos and only enable this version
+if [ -n "${version}" ] ; then
+  yum_options="${yum_options} --disablerepo=* --enablerepo=${version}"
+else
+  yum_options="${yum_options} --enablerepo=*"
+fi
+
+################
+# clean up cache
+# make new cache
+################
+if [ -n "${cache}" ] ; then
+  yum -d 0 clean all
+  yum -d 0 ${yum_options} clean all
+  yum -d 0 ${yum_options} makecache
+fi
+
+##################
+# list information
+##################
+if [ ! -z "${list}" ] ; then
+  if [ "${list}" == "repos" ] ; then
+    echo ""
+    echo "Available versions are:"
+    yum ${yum_options} -y repolist
+    exit $?
+  elif [ "${list}" == "groups" ] ; then
+    echo ""
+    echo "Available groups in YUM repo ${version} are:"
+    repoquery ${yum_options} -g -a | awk '{print $1}'
+    exit $?
+  elif [ "${list}" == "rpms" ] ; then
+    repoquery ${yum_options} --nvr -a | sort
+    exit $?
+  else 
+    die "$usage"
+  fi
+fi
+
+########################################
+# Need at least one package or yum group
+########################################
+[ $# -lt 1 ] && [ -z "${update}" ] && die "$usage"
+packages="$@"
+
+################################
+# installing rpms or yum groups?
+################################
+if [ -n "${install_rpm}" ] ; then
+     yum_options="${yum_options} install"
+elif [ -n "${update}" ] ; then
+     yum_options="${yum_options} update"
+else
+     yum_options="${yum_options} groupinstall"
+fi
+
+##########################################
+# get the image diretory ready for install
+##########################################
+prep_image_dir ${image} || exit $?
+
+#################
+#create the image
+#################
+yum ${yum_options} -y --installroot ${imagedir} ${packages} --nogpgcheck
+
+##########
+# Clean up
+##########
+image_clean_up ${image}
+
+#########################################
+# Let people know where the qemu image is
+#########################################
+if [ -n "${qemu_size}" ] ; then
+  echo "qemu image is located at ${imagedir}.img"
+fi
