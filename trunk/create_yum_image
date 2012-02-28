@@ -57,8 +57,8 @@ from the YUM repo called current.\n\
 \n\
    -y, --yum_include path       YUM include location to get repo \n\
                                 information from\n\
-				example: ftp://chaos.llnl.gov/chaos/chaos.repo\n\
-				example: file:///repo/chaos/chaos.repo\n\
+				example: ftp://chaos.llnl.gov/toss/toss.repo\n\
+				example: file:///repo/toss/toss.repo\n\
 \n\
    -z, --instdir dir            Alternate installation directory\n\
                                 Default dir is /tftpboot/images\n\
@@ -75,7 +75,7 @@ from the YUM repo called current.\n\
 ##\n\
 
 die () {
-    echo -e "$prog: $@" >&2
+    echo -e "$prog: $@"
     exit 1
 }
 
@@ -166,8 +166,8 @@ fi
 # repos and only enable this version
 if [ -n "${version}" ] ; then
   yum_options="${yum_options} --disablerepo=* --enablerepo=${version}"
-else
-  yum_options="${yum_options} --enablerepo=*"
+#else
+  #yum_options="${yum_options} --enablerepo=*"
 fi
 
 ################
