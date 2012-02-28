@@ -104,24 +104,41 @@ make_qemu_img()
     # partiton and format image if needed
     if ( ! file ${inst_dir}/${image}.img | grep -q "boot sector" ) ; then
 
-      # partition file
+      # partition file, assume 128MB for /boot
       losetup -f ${inst_dir}/${image}.img
       loopy=`losetup -j ${inst_dir}/${image}.img | awk -F: '/loop/ {print $1}'`
+#      sfdisk -D ${loopy} << EOF
+#,128,83,*
+#,,83
+#EOF
       sfdisk -D ${loopy} << EOF
-,,,*
+,,83,*
 EOF
+
       losetup -d ${loopy}
+
       # mount image with offset to format partition
       losetup --offset=32256 -f ${inst_dir}/${image}.img
       loopy=`losetup -j ${inst_dir}/${image}.img | awk -F: '/loop/ {print $1}'`
+      #mke2fs -F -L/boot -j ${loopy} > /dev/null 2>&1
       mke2fs -F -L/ -j ${loopy} > /dev/null 2>&1
       losetup -d ${loopy}
+      
+      #losetup --offset=1052835840 -f ${inst_dir}/${image}.img
+      #loopy=`losetup -j ${inst_dir}/${image}.img | awk -F: '/loop/ {print $1}'`
+      #mke2fs -F -L/ -j ${loopy} > /dev/null 2>&1
+      #losetup -d ${loopy}
     fi
 
     # get image mounted
     mkdir -p ${inst_dir}/${image}
-    mount -o loop,offset=32256 ${inst_dir}/${image}.img ${inst_dir}/${image} \
-    || return $EXIT_FAIL
+    mount -o loop,offset=32256 ${inst_dir}/${image}.img \
+    ${inst_dir}/${image} || return $EXIT_FAIL
+    #mount -o loop,offset=1052835840 ${inst_dir}/${image}.img \
+    #${inst_dir}/${image} || return $EXIT_FAIL
+    #mkdir -p ${inst_dir}/${image}/boot
+    #mount -o loop,offset=32256 ${inst_dir}/${image}.img \
+    #${inst_dir}/${image}/boot || return $EXIT_FAIL
   fi
 }
 
@@ -221,18 +238,26 @@ image_clean_up()
   fi
 
   # make qemu image bootable and unmount qemu image if required
-## if [ -n "${qemu_size}" ] ; then
-##   # copy grub.conf
-##   losetup -f ${inst_dir}/${image}.img
-##   loopy=`losetup -j ${inst_dir}/${image}.img |awk -F: '!/offset/ {print $1}'`
-##   echo "(hd0) ${loopy}" > ${inst_dir}/${image}/boot/grub/device.map
-##   mount --bind /dev ${inst_dir}/${image}/dev
-##   my_grub-install --no-floppy --root-directory=${inst_dir}/${image} ${loopy}
-##   umount ${inst_dir}/${image}/dev
-##   losetup -d ${loopy}
-##   umount ${inst_dir}/${image}
-## fi
+  if [ -n "${qemu_size}" ] ; then
+    # copy grub.conf
+    losetup -f ${inst_dir}/${image}.img
+    loopy=`losetup -j ${inst_dir}/${image}.img |awk -F: '!/offset/ {print $1}'`
+    mount --bind /dev ${inst_dir}/${image}/dev
+    for file in stage1 stage2 *stage1_5 ; do
+      cp -a ${inst_dir}/${image}/usr/share/grub/*-redhat/${file} \
+            ${inst_dir}/${image}/boot/grub/
+    done
+ 
+    #chroot ${inst_dir}/${image} grub --device-map=/dev/null --batch << EOT
+ #device (hd0) ${loopy}
+ #root (hd0,0)
+ #setup --stage2=/boot/grub/stage2 (hd0)
+ #quit
+ #EOT
 
+    #umount ${inst_dir}/${image}/dev
+  fi
+ 
   # remount directory with nodev option if required
   mount_nodev
 }
