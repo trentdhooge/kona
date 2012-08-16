@@ -9,8 +9,8 @@ umask 022
 . /etc/sysconfig/kona
 
 declare -r prog=${0##*/}
-declare -r long_opts="image:,instdir:,nodelete,rpmlist:,rpmdir:,stdin,update,help"
-declare -r short_opts="i:d:nr:suz:h"
+declare -r long_opts="image:,instdir:,nodelete,rpmlist:,rpmdir:,stdin,update,help,qemu:"
+declare -r short_opts="i:d:nr:suz:hq:"
 declare -r getopt="/usr/bin/getopt -u"
 declare -r usage="\
 \n\
@@ -45,6 +45,13 @@ Passing no other options will create an image in\n\
    -z, --instdir dir            Alternate installation directory\n\
                                 Default dir is /tftpboot/images\n\
 \n\
+   -q, --qemu size              Create qemu image of this size\n\
+                                'size' is the disk image size in bytes.\n\
+                                Optional suffixes\n\
+                                  'k' or 'K' (kilobyte, 1024),\n\
+                                  'M' (megabyte, 1024k),\n\
+                                  'G' (gigabyte, 1024M)\n\
+\n\
    -h, --help                   Display usage message\n"
 
 die () {
@@ -67,6 +74,7 @@ while true; do
         -d|--rpmdir)       rpmdir="$2"      ; shift 2 ;;
         -n|--nodelete)     remove_image=0   ; shift   ;;
         -r|--rpmlist)      rpmlist=$2       ; shift 2 ;;
+        -q|--qemu)         qemu_size="$2"   ; shift 2 ;;
         -s|--stdin)        stdin=1          ; shift   ;;
         -u|--update)       remove_image=0 ; update=1  ; shift   ;;
         -z|--instdir)      inst_dir=$2       ; shift 2 ;;
@@ -139,3 +147,10 @@ prep_image_dir
 # Clean up
 ##########
 image_clean_up
+
+#########################################
+# Let people know where the qemu image is
+#########################################
+if [ -n "${qemu_size}" ] ; then
+  echo "qemu image is located at ${imagedir}.img"
+fi

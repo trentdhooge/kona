@@ -97,49 +97,70 @@ make_qemu_img()
 
     # if image don't exist create it
     if [ ! -e "${inst_dir}/${image}.img" ] ; then
-      qemu-img create ${inst_dir}/${image}.img ${qemu_size} > /dev/null 2>&1 \
-      || return $EXIT_FAIL
+      echo "creating ${inst_dir}/${image}.img of size ${qemu_size}"
+      qemu-img create ${inst_dir}/${image}.img ${qemu_size} || return $EXIT_FAIL
     fi
 
     # partiton and format image if needed
     if ( ! file ${inst_dir}/${image}.img | grep -q "boot sector" ) ; then
 
-      # partition file, assume 128MB for /boot
       losetup -f ${inst_dir}/${image}.img
       loopy=`losetup -j ${inst_dir}/${image}.img | awk -F: '/loop/ {print $1}'`
-#      sfdisk -D ${loopy} << EOF
-#,128,83,*
-#,,83
-#EOF
       sfdisk -D ${loopy} << EOF
 ,,83,*
 EOF
 
+      blocks=`sfdisk -l ${loopy} |awk '{gsub("\\\+","")} /Linux/ {print $6}'`
       losetup -d ${loopy}
 
       # mount image with offset to format partition
       losetup --offset=32256 -f ${inst_dir}/${image}.img
       loopy=`losetup -j ${inst_dir}/${image}.img | awk -F: '/loop/ {print $1}'`
-      #mke2fs -F -L/boot -j ${loopy} > /dev/null 2>&1
-      mke2fs -F -L/ -j ${loopy} > /dev/null 2>&1
+      mke2fs -b 1024 -F -L/ -j ${loopy} ${blocks} > /dev/null 2>&1
       losetup -d ${loopy}
       
-      #losetup --offset=1052835840 -f ${inst_dir}/${image}.img
-      #loopy=`losetup -j ${inst_dir}/${image}.img | awk -F: '/loop/ {print $1}'`
-      #mke2fs -F -L/ -j ${loopy} > /dev/null 2>&1
-      #losetup -d ${loopy}
     fi
 
     # get image mounted
     mkdir -p ${inst_dir}/${image}
     mount -o loop,offset=32256 ${inst_dir}/${image}.img \
     ${inst_dir}/${image} || return $EXIT_FAIL
-    #mount -o loop,offset=1052835840 ${inst_dir}/${image}.img \
-    #${inst_dir}/${image} || return $EXIT_FAIL
-    #mkdir -p ${inst_dir}/${image}/boot
-    #mount -o loop,offset=32256 ${inst_dir}/${image}.img \
-    #${inst_dir}/${image}/boot || return $EXIT_FAIL
   fi
+}
+
+qemu_files()
+{
+  cp -p /usr/share/kona/{passwd,group,shadow,fstab} ${inst_dir}/${image}/etc
+  cp -p /usr/share/kona/grub.conf ${inst_dir}/${image}/boot/grub/grub.conf
+  cp -p /usr/share/kona/network ${inst_dir}/${image}/etc/sysconfig/network
+  cp -p /usr/share/kona/ifcfg-eth0 ${inst_dir}/${image}/etc/sysconfig/network-scripts/ifcfg-eth0
+  pushd ${inst_dir}/${image}/etc > /dev/null 2>&1
+    ln -s ../boot/grub/grub.conf .
+  popd > /dev/null 2>&1
+  for file in stage1 stage2 *stage1_5 ; do
+    cp -a ${inst_dir}/${image}/usr/share/grub/*-redhat/${file} \
+          ${inst_dir}/${image}/boot/grub/
+  done
+
+  # Fix up grub.conf
+  if ( chroot ${inst_dir}/${image} which grubby > /dev/null 2>&1 ) ; then
+    initramfs=$(basename `ls ${inst_dir}/${image}/boot/initramfs*.img|head -1`)
+    kernel=$(basename `ls ${inst_dir}/${image}/boot/vmlinuz-*|head -1`)
+    version=`echo ${kernel} | sed s/vmlinuz-//`
+    distro=`sed 's/ release.*$//' < ${inst_dir}/${image}/etc/redhat-release`
+    title="${distro} (${version})"
+    chroot ${inst_dir}/${image} grubby --add-kernel=/boot/${kernel} \
+           --initrd=/boot/${initramfs} --copy-default --title "${title}" \
+           --config-file=/boot/grub/grub.conf \
+           --remove-kernel="TITLE=DEFAULT" --bad-image-okay
+  # If no grubby, punt
+  else
+    pushd ${inst_dir}/${image}/boot > /dev/null 2>&1
+      ln -s `ls |grep -m1 vmlinuz` vmlinuz
+      ln -s `ls |grep -m1 initramfs` initramfs
+    popd > /dev/null 2>&1
+  fi
+
 }
 
 # Usage: make_image_dir
@@ -239,25 +260,26 @@ image_clean_up()
 
   # make qemu image bootable and unmount qemu image if required
   if [ -n "${qemu_size}" ] ; then
-    # copy grub.conf
-    losetup -f ${inst_dir}/${image}.img
-    loopy=`losetup -j ${inst_dir}/${image}.img |awk -F: '!/offset/ {print $1}'`
-    mount --bind /dev ${inst_dir}/${image}/dev
-    for file in stage1 stage2 *stage1_5 ; do
-      cp -a ${inst_dir}/${image}/usr/share/grub/*-redhat/${file} \
-            ${inst_dir}/${image}/boot/grub/
-    done
- 
-    #chroot ${inst_dir}/${image} grub --device-map=/dev/null --batch << EOT
- #device (hd0) ${loopy}
- #root (hd0,0)
- #setup --stage2=/boot/grub/stage2 (hd0)
- #quit
- #EOT
+    
+    # Install files to make it boot
+    qemu_files
 
-    #umount ${inst_dir}/${image}/dev
-  fi
+    # Install grub
+    grub --device-map=/dev/null --batch << EOF
+device (hd0) ${inst_dir}/${image}.img
+root (hd0,0)
+setup (hd0)
+quit
+EOF
+
+    # Unmount image and release loop device
+    umount ${inst_dir}/${image}
+    rmdir ${inst_dir}/${image}
+    loopy=`losetup -j ${inst_dir}/${image}.img | awk -F: '/loop/ {print $1}'`
+    losetup -d ${loopy}
  
+  fi
+
   # remount directory with nodev option if required
   mount_nodev
 }
