@@ -1,0 +1,28 @@
+#Using create\_yum\_image
+
+Assuming you have a yum repo enabled. This creates a directory
+/tftpboot/images/compute and installs the rpms that are part of Base and
+Desktop YUM groups.
+
+```
+create_yum_image -i compute Base Desktop
+```
+
+This creates a directory /tftpboot/images/compute that will install bash,
+kernel, grub and any dependencies they may have
+
+```
+create_yum_image -i compute -r kernel grub bash
+```
+
+This creates a directory /tftpboot/images/compute that will install the rpms you have installed on your running box
+
+```
+create_yum_image -i compute -r ` rpm -qa --queryformat "%{name}\n" |paste -s -d ' '`
+```
+
+This creates a directory  /tftpboot/images/compute that will install the rpms from your rpmlist, where your rpmlist was created just running `rpm -qa`
+
+```
+create_yum_image -i compute -r `cat rpmlist |perl -ne '~/^(.*)(\-.*?\-.*?)$/; print "$1\n"'`
+```

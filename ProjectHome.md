@@ -1,0 +1,1 @@
+Tool for creating chrooted images from rpms or yum
