@@ -1,6 +1,6 @@
-Name:
-Version: 
-Release: 
+Name: kona
+Version: 1
+Release: 5.4
 Summary: Tool for creating chrooted images from rpms or yum
 License: GPL
 Group: System Environment/Kernel
@@ -8,14 +8,21 @@ Vendor: LLNL
 Source: %{name}-%{version}-%{release}.tgz
 BuildRoot: %{_tmppath}/%{name}-%{version}
 BuildArchitectures: noarch
-Requires: rpm, yum, coreutils, bash, grub, qemu-img
+Requires: rpm, yum, coreutils, bash, qemu-img
+
+%if 0%{rhel} > 6
+Requires: grub2
+%else
+Requires: grub
+%endif
+
 %define __spec_install_post /usr/lib/rpm/brp-compress || :
 
 %description
 Tool for creating chrooted images from rpms or yum
 
 %prep
-%setup -q -n %{name}-%{version}
+%setup -q -n %{name}-%{version}-%{release}
 
 %build
 
@@ -51,6 +58,18 @@ rm -rf $RPM_BUILD_ROOT
 %attr(0444,root,root) /usr/share/kona/GPL.txt
 
 %changelog
+* Thu Nov 20 2014 Trent D'Hooge <tdhooge@llnl.gov>
+  - Require grub2 on > RHEL6
+
+* Tue Apr 16 2013 Trent D'Hooge <tdhooge@llnl.gov>
+  - Define PATH in create_*_image
+
+  - set $releasever in create_yum_image for repos that use that variable
+    https://lc.llnl.gov/jira/browse/TOSS-2025
+    
+  - run lsof on chrooted image and kill anything running in it
+    https://lc.llnl.gov/jira/browse/TOSS-2024
+
 * Fri Jul 27 2012 Trent D'Hooge <tdhooge@llnl.gov>
   - attempt to use grubby to update grub.conf file
     so new RH kernel will properly update grub.conf

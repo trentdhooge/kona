@@ -5,11 +5,13 @@
 ##################################################################
 umask 022
 
+PATH=/sbin:/bin:/usr/bin:/usr/sbin:/tmp
+
 # Source funtions
 . /etc/sysconfig/kona
 
 declare -r prog=${0##*/}
-declare -r long_opts="cache:image:,instdir:,install_rpm,list:,version:,update,nodelete,yum_include:,repodir:,help,qemu:"
+declare -r long_opts="cache:image:,instdir:,install_rpm,list:,version:,releasever:,update,nodelete,yum_include:,repodir:,help,qemu:"
 declare -r short_opts="ci:d:rl:nv:uy:z:hq:"
 declare -r getopt="/usr/bin/getopt -u"
 declare -r usage="\
@@ -22,6 +24,13 @@ yum_groups and rpms are space delimited
 Passing no options will create an image in\n\
 /tftpboot/images/kona with the yum group(s) or package(s) you specified\n\
 from the YUM repo called current.\n\
+\n\
+       --releasever release	Main version of release.\n\
+				By default version will be defined from node\n\
+				running create_yum_image.\n\
+				Required for yum repos that use \$releasever.\n\
+				You should not need to set this.\n\
+				See \`yum version nogroups\`\n\
 \n\
    -i, --image name             Name of the image you want created\n\
                                 Default name is kona\n\
@@ -50,9 +59,10 @@ from the YUM repo called current.\n\
    -u, --update                 Update rpms in image, Does not install missing\n\
                                 rpms unless required for the update\n\
 \n\
-   -v, --version release        Chaos release version\n\
-                                example: 5.0-0\n\
-				No version will include all yum repos\n\
+   -v, --version release|repo   Chaos release version, or repo id\n\
+                                example: 5.0-0, or rhel-x86_64-server-6\n\
+				Not setting a version will include all\n\
+				yum enabled repos.\n\
 				Specifying a version will only use that version\n\
 \n\
    -y, --yum_include path       YUM include location to get repo \n\
@@ -108,6 +118,7 @@ while true; do
         -q|--qemu)         qemu_size="$2"   ; shift 2 ;;
         -l|--list)         list=$2          ; shift 2 ;;
         -v|--version)      version=$2       ; shift 2 ;;
+           --releasever)   releasever=$2    ; shift 2 ;;
         -y|--yum_include)  yum_include="$2" ; shift 2 ;;
         -z|--instdir)      inst_dir=$2      ; shift 2 ;;
         -h|--help)         die "$usage"               ;;
@@ -165,8 +176,14 @@ fi
 # repos and only enable this version
 if [ -n "${version}" ] ; then
   yum_options="${yum_options} --disablerepo=* --enablerepo=${version}"
-#else
-  #yum_options="${yum_options} --enablerepo=*"
+fi
+
+if [ -n "${releasever}" ] ; then
+  yum_options="${yum_options} --releasever=${releasever}"
+else
+  # Hack to get this release version and not spend time waiting on yum
+  releasever=`python -c 'import yum, pprint; yb = yum.YumBase(); pprint.pprint(yb.conf.yumvar, width=1)' |awk -F"'" '$2 == "releasever" {print $4}'`
+  yum_options="${yum_options} --releasever=${releasever}"
 fi
 
 ################

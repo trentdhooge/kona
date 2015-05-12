@@ -82,6 +82,9 @@ make_image_files()
   rm -f ${inst_dir}/${image}/dev/null
   mknod ${inst_dir}/${image}/dev/null c 1 3
   chmod 666 ${inst_dir}/${image}/dev/null
+  rm -f ${inst_dir}/${image}/dev/urandom
+  mknod ${inst_dir}/${image}/dev/urandom c 1 9
+  chmod 666 ${inst_dir}/${image}/dev/urandom
 }
  
 # Usage: make_qemu_img
@@ -130,9 +133,13 @@ EOF
 
 qemu_files()
 {
+  mkdir -p ${inst_dir}/${image}/etc
   cp -p /usr/share/kona/{passwd,group,shadow,fstab} ${inst_dir}/${image}/etc
+  mkdir -p ${inst_dir}/${image}/boot/grub
   cp -p /usr/share/kona/grub.conf ${inst_dir}/${image}/boot/grub/grub.conf
+  mkdir -p ${inst_dir}/${image}/etc/sysconfig
   cp -p /usr/share/kona/network ${inst_dir}/${image}/etc/sysconfig/network
+  mkdir -p ${inst_dir}/${image}/etc/sysconfig/network-scripts
   cp -p /usr/share/kona/ifcfg-eth0 ${inst_dir}/${image}/etc/sysconfig/network-scripts/ifcfg-eth0
   pushd ${inst_dir}/${image}/etc > /dev/null 2>&1
     ln -s ../boot/grub/grub.conf .
@@ -256,6 +263,14 @@ image_clean_up()
   # Make sure ldconfig is run
   if ( chroot ${inst_dir}/${image} which ldconfig > /dev/null 2>&1 ) ; then
     chroot ${inst_dir}/${image} ldconfig
+  fi
+
+  # Make sure nothing is running in the image
+  if ( which lsof > /dev/null 2>&1 ) ; then
+    lsof ${inst_dir}/${image} | awk '(0+$2) > 1 {print $2}' | while read line
+    do
+      kill -9 $line
+    done
   fi
 
   # make qemu image bootable and unmount qemu image if required
