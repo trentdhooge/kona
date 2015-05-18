@@ -58,6 +58,9 @@ rm -rf $RPM_BUILD_ROOT
 %attr(0444,root,root) /usr/share/kona/GPL.txt
 
 %changelog
+* Mon May 18 2015 Trent D'Hooge <tdhooge@llnl.gov>
+  - added nbd support from silva50@llnl.gov
+
 * Thu Nov 20 2014 Trent D'Hooge <tdhooge@llnl.gov>
   - Require grub2 on > RHEL6
 
