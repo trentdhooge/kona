@@ -1,6 +1,6 @@
 Name: kona
 Version: 1
-Release: 5.5.2%{?dist}
+Release: 6%{?dist}
 Summary: Tool for creating chrooted images from rpms or yum
 License: GPL
 Group: System Environment/Kernel
