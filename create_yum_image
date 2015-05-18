@@ -11,8 +11,8 @@ PATH=/sbin:/bin:/usr/bin:/usr/sbin:/tmp
 . /etc/sysconfig/kona
 
 declare -r prog=${0##*/}
-declare -r long_opts="cache:image:,instdir:,install_rpm,list:,version:,releasever:,update,nodelete,yum_include:,repodir:,help,qemu:"
-declare -r short_opts="ci:d:rl:nv:uy:z:hq:"
+declare -r long_opts="cache:image:,instdir:,install_rpm,list:,version:,releasever:,update,nodelete,yum_include:,repodir:,help,qemu:,nbd:"
+declare -r short_opts="ci:d:rl:nv:uy:z:hq:b:"
 declare -r getopt="/usr/bin/getopt -u"
 declare -r usage="\
 \n\
@@ -80,6 +80,9 @@ from the YUM repo called current.\n\
                                   'M' (megabyte, 1024k),\n\
                                   'G' (gigabyte, 1024M)\n\
 \n\
+   -b, --nbd size              Create nbd image of this size\n\
+                               'size' is the disk image size in Mbytes.\n\
+\n\
    -h, --help                   Display usage message\n"
 
 
@@ -116,6 +119,7 @@ while true; do
         -n|--nodelete)     remove_image=0   ; shift   ;;
         -u|--update)       remove_image=0 ; update=1   ; shift   ;;
         -q|--qemu)         qemu_size="$2"   ; shift 2 ;;
+        -b|--nbd)          nbd_size="$2"    ; shift 2 ;;
         -l|--list)         list=$2          ; shift 2 ;;
         -v|--version)      version=$2       ; shift 2 ;;
            --releasever)   releasever=$2    ; shift 2 ;;
@@ -255,4 +259,7 @@ image_clean_up ${image}
 #########################################
 if [ -n "${qemu_size}" ] ; then
   echo "qemu image is located at ${imagedir}.img"
+fi
+if [ -n "${nbd_size}" ]; then
+  echo "nbd image is located at ${imagedir}.img"
 fi

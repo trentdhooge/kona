@@ -33,6 +33,9 @@ update=""
 # qemu image size, if defined, qemu image
 # will be created as ${image}.img and mounted on ${image}
 qemu_size=""
+# nbd image size, if defined, nbd image
+# will be created as ${image}.img and mounted on ${image}
+nbd_size=""
 
 # Usage: check_root
 # If user is not root, exit with NOTRUN.
@@ -170,6 +173,37 @@ qemu_files()
 
 }
 
+# Usage: make_nbd_img
+# Create nbd ${image}.img and mount it on ${image}
+make_nbd_img()
+{
+  if [ -n "${nbd_size}" ] ; then
+
+    # remove old nbd image?
+    if [ "${remove_image}" -eq 1 ] ; then
+        rm -f "${inst_dir}/${image}.img"
+    fi
+
+    # if image don't exist create it
+    if [ ! -e "${inst_dir}/${image}.img" ] ; then
+      echo "creating ${inst_dir}/${image}.img of size ${nbd_size}MB"
+      dd if=/dev/zero of=${inst_dir}/${image}.img bs=1M count=${nbd_size}
+      chmod 644 ${inst_dir}/${image}.img
+    fi
+
+    # format image 
+    echo "creating ext4 filesystem on ${inst_dir}/${image}.img"
+    mkfs.ext4 -F -L/ ${inst_dir}/${image}.img
+    tune2fs -i 0 -c 0 -O ^has_journal,sparse_super ${inst_dir}/${image}.img
+    fsck.ext4 -y ${inst_dir}/${image}.img
+
+    # get image mounted
+    mkdir -p ${inst_dir}/${image}
+    mount -o loop ${inst_dir}/${image}.img ${inst_dir}/${image} || return $EXIT_FAIL
+  fi
+}
+
+
 # Usage: make_image_dir
 # Create directories that are required to build image
 make_image_dir()
@@ -233,6 +267,7 @@ prep_image_dir()
   umount_proc
   remove_image_dir
   make_qemu_img || return $EXIT_FAIL
+  make_nbd_img || return $EXIT_FAIL
   make_image_dir
   mount_proc
   check_nodev
@@ -293,6 +328,19 @@ EOF
     loopy=`losetup -j ${inst_dir}/${image}.img | awk -F: '/loop/ {print $1}'`
     losetup -d ${loopy}
  
+  fi
+
+  # make nbd image ready to boot via pxelinux then remount image read-only
+  # This will most likely go away when toss3 gets configpxe tools.  This also
+  # assumes there's only a single kernel installed on the image.
+  if [ -n "${nbd_size}" ] ; then
+    # make generic links to kernel and initramfs
+    pushd ${inst_dir}/${image}/boot > /dev/null 2>&1
+      ln -s `ls |grep -v rescue |grep -m1 vmlinuz` vmlinuz
+      ln -s `ls |grep -v rescue |grep -m1 initramfs` initramfs
+    popd > /dev/null 2>&1
+
+    mount -o remount,ro ${inst_dir}/${image}
   fi
 
   # remount directory with nodev option if required
