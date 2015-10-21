@@ -247,7 +247,7 @@ prep_image_dir ${image} || exit $?
 #################
 #create the image
 #################
-yum ${yum_options} -y --installroot ${imagedir} ${packages}
+yum ${yum_options} --nogpg -y --installroot ${imagedir} ${packages}
 
 ##########
 # Clean up
