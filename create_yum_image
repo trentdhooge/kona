@@ -63,7 +63,7 @@ from the YUM repo called current.\n\
                                 example: 5.0-0, or rhel-x86_64-server-6\n\
 				Not setting a version will include all\n\
 				yum enabled repos.\n\
-				Specifying a version will only use that version\n\
+				Multiple versions or repos can be defined\n\
 \n\
    -y, --yum_include path       YUM include location to get repo \n\
                                 information from\n\
@@ -117,11 +117,11 @@ while true; do
         -d|--repodir)      repodir="$2"     ; shift 2 ;;
         -r|--rpm)          install_rpm=1    ; shift   ;;
         -n|--nodelete)     remove_image=0   ; shift   ;;
-        -u|--update)       remove_image=0 ; update=1   ; shift   ;;
+        -u|--update)       remove_image=0 ; update=1  ; shift   ;;
         -q|--qemu)         qemu_size="$2"   ; shift 2 ;;
         -b|--nbd)          nbd_size="$2"    ; shift 2 ;;
         -l|--list)         list=$2          ; shift 2 ;;
-        -v|--version)      version=$2       ; shift 2 ;;
+        -v|--version)      version="${version},$2"   ; shift 2 ;;
            --releasever)   releasever=$2    ; shift 2 ;;
         -y|--yum_include)  yum_include="$2" ; shift 2 ;;
         -z|--instdir)      inst_dir=$2      ; shift 2 ;;
@@ -131,6 +131,8 @@ while true; do
     esac
 done
 
+# clean up the version
+[ -n "${version}" ] && version=`echo ${version}|sed s/^,//`
 
 #####################################################
 # Make sure you are root, else there will be problems
@@ -181,6 +183,8 @@ fi
 if [ -n "${version}" ] ; then
   yum_options="${yum_options} --disablerepo=* --enablerepo=${version}"
 fi
+
+echo "${yum_options}" && exit 0
 
 if [ -n "${releasever}" ] ; then
   yum_options="${yum_options} --releasever=${releasever}"
