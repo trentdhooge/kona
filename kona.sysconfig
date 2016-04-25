@@ -186,8 +186,8 @@ make_nbd_img()
 
     # if image don't exist create it
     if [ ! -e "${inst_dir}/${image}.img" ] ; then
-      echo "creating ${inst_dir}/${image}.img of size ${nbd_size}MB"
-      dd if=/dev/zero of=${inst_dir}/${image}.img bs=1M count=${nbd_size}
+      echo "creating ${inst_dir}/${image}.img of size ${nbd_size}"
+      qemu-img create ${inst_dir}/${image}.img ${nbd_size} || return $EXIT_FAIL
       chmod 644 ${inst_dir}/${image}.img
     fi
 

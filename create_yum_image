@@ -80,8 +80,12 @@ from the YUM repo called current.\n\
                                   'M' (megabyte, 1024k),\n\
                                   'G' (gigabyte, 1024M)\n\
 \n\
-   -b, --nbd size              Create nbd image of this size\n\
-                               'size' is the disk image size in Mbytes.\n\
+   -b, --nbd size               Create nbd image of this size\n\
+                                'size' is the disk image size in bytes.\n\
+                                Optional suffixes\n\
+                                  'k' or 'K' (kilobyte, 1024),\n\
+                                  'M' (megabyte, 1024k),\n\
+                                  'G' (gigabyte, 1024M)\n\
 \n\
    -h, --help                   Display usage message\n"
 
