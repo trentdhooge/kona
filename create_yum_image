@@ -188,8 +188,6 @@ if [ -n "${version}" ] ; then
   yum_options="${yum_options} --disablerepo=* --enablerepo=${version}"
 fi
 
-echo "${yum_options}" && exit 0
-
 if [ -n "${releasever}" ] ; then
   yum_options="${yum_options} --releasever=${releasever}"
 else
