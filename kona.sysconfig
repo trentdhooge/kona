@@ -340,7 +340,8 @@ EOF
       ln -s `ls |grep -v rescue |grep -m1 initramfs` initramfs
     popd > /dev/null 2>&1
 
-    mount -o remount,ro ${inst_dir}/${image}
+    #mount -o remount,ro ${inst_dir}/${image}
+    umount ${inst_dir}/${image}
   fi
 
   # remount directory with nodev option if required
