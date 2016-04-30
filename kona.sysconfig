@@ -166,8 +166,8 @@ qemu_files()
   # If no grubby, punt
   else
     pushd ${inst_dir}/${image}/boot > /dev/null 2>&1
-      ln -s `ls |grep -m1 vmlinuz` vmlinuz
-      ln -s `ls |grep -m1 initramfs` initramfs
+      ln -s `ls |grep -m1 vmlinuz` vmlinuz > /dev/null 2>&1
+      ln -s `ls |grep -m1 initramfs` initramfs > /dev/null 2>&1
     popd > /dev/null 2>&1
   fi
 
