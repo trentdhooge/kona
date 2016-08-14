@@ -11,8 +11,8 @@ PATH=/sbin:/bin:/usr/bin:/usr/sbin:/tmp
 . /etc/sysconfig/kona
 
 declare -r prog=${0##*/}
-declare -r long_opts="cache:image:,instdir:,install_rpm,list:,version:,releasever:,update,nodelete,yum_include:,repodir:,help,qemu:,nbd:"
-declare -r short_opts="ci:d:rl:nv:uy:z:hq:b:"
+declare -r long_opts="cache:image:,instdir:,install_rpm,list:,version:,releasever:,update,nodelete,yum_include:,repodir:,help,qemu:,nbd:,size"
+declare -r short_opts="ci:d:rsl:nv:uy:z:hq:b:"
 declare -r getopt="/usr/bin/getopt -u"
 declare -r usage="\
 \n\
@@ -87,6 +87,10 @@ from the YUM repo called current.\n\
                                   'M' (megabyte, 1024k),\n\
                                   'G' (gigabyte, 1024M)\n\
 \n\
+   -s, --size                   Print install size in MB and exit\n\
+                                This is what you would pass to -b\n\
+                                This is only an approximation\n\
+\n\
    -h, --help                   Display usage message\n"
 
 
@@ -101,6 +105,7 @@ die () {
 : ${yum_include=""}
 : ${repodir=""}
 : ${install_rpm=""}
+: ${install_size=""}
 source=/etc/kona/defaults
 yum_options=""
 yumconf=/tmp/kona.yumconf
@@ -120,6 +125,7 @@ while true; do
         -c|--cache)        cache=1          ; shift   ;;
         -d|--repodir)      repodir="$2"     ; shift 2 ;;
         -r|--rpm)          install_rpm=1    ; shift   ;;
+        -s|--size)         install_size=1   ; shift   ;;
         -n|--nodelete)     remove_image=0   ; shift   ;;
         -u|--update)       remove_image=0 ; update=1  ; shift   ;;
         -q|--qemu)         qemu_size="$2"   ; shift 2 ;;
@@ -243,6 +249,25 @@ elif [ -n "${update}" ] ; then
      yum_options="${yum_options} update"
 else
      yum_options="${yum_options} groupinstall"
+fi
+
+##################
+# Want size info ?
+##################
+if [ -n "${install_size}" ] ; then
+    if [ -n "${install_rpm}" ] ; then
+        space_required=`repoquery --qf='%{installedsize}' ${packages} | \
+                        awk '{sum+=$1} END {printf("%d\n",sum/1024/1024)}'`
+    else
+        my_packages=$(yum -q groupinfo ${packages} | grep -v : | \
+                    sed -e 's/^[[:space:]]\+//' -e 's/\(^-\|^=\)//' | \
+                    sort | uniq)
+        space_required=`repoquery --qf='%{installedsize}' ${my_packages} | \
+                        awk '{sum+=$1} END {printf("%d\n",sum/1024/1024)}'`
+    fi
+
+    echo "${space_required}M"
+    exit 0
 fi
 
 ##########################################
