@@ -335,10 +335,12 @@ EOF
   # assumes there's only a single kernel installed on the image.
   if [ -n "${nbd_size}" ] ; then
     # make generic links to kernel and initramfs
-    pushd ${inst_dir}/${image}/boot > /dev/null 2>&1
-      ln -s `ls |grep -v rescue |grep -m1 vmlinuz` vmlinuz
-      ln -s `ls |grep -v rescue |grep -m1 initramfs` initramfs
-    popd > /dev/null 2>&1
+    if [ -d {inst_dir}/${image}/boot ] ; then
+      pushd ${inst_dir}/${image}/boot > /dev/null 2>&1
+        ln -s `ls |grep -v rescue |grep -m1 vmlinuz` vmlinuz
+        ln -s `ls |grep -v rescue |grep -m1 initramfs` initramfs
+      popd > /dev/null 2>&1
+    fi
 
     #mount -o remount,ro ${inst_dir}/${image}
     umount ${inst_dir}/${image}
