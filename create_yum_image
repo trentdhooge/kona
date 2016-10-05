@@ -107,7 +107,7 @@ die () {
 : ${install_rpm=""}
 : ${install_size=""}
 source=/etc/kona/defaults
-yum_options=""
+: ${yum_options=""}
 yumconf=/tmp/kona.yumconf
 rm -f ${yumconf}
 
@@ -185,13 +185,13 @@ imagedir=${inst_dir}/${image}
 
 # did we create a yum.conf, if so we need to use it
 if [ -r ${yumconf} ] ; then
-  yum_options="-c ${yumconf}"
+  yum_options="-c ${yumconf} ${yum_options}"
 fi
 
 # if specific version is defined, disable all other
 # repos and only enable this version
 if [ -n "${version}" ] ; then
-  yum_options="${yum_options} --disablerepo=* --enablerepo=${version}"
+  yum_options="--disablerepo=* --enablerepo=${version} ${yum_options}"
 fi
 
 if [ -n "${releasever}" ] ; then
