@@ -1,6 +1,6 @@
 Name: kona
 Version: 1
-Release: 16%{?dist}
+Release: 17%{?dist}
 Summary: Tool for creating chrooted images from rpms or yum
 License: GPL
 Group: System Environment/Kernel
@@ -8,7 +8,10 @@ Vendor: LLNL
 Source: %{name}-%{version}-%{release}.tgz
 BuildRoot: %{_tmppath}/%{name}-%{version}
 BuildArchitectures: noarch
-Requires: rpm, yum, coreutils, bash, qemu-img
+Requires: rpm, yum, coreutils, bash
+%ifarch x86_64 ppc64le
+Requires qemu-img
+%endif
 
 %if 0%{rhel} > 6
 Requires: grub2
