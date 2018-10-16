@@ -5,7 +5,7 @@ Summary: Tool for creating chrooted images from rpms or yum
 License: GPL
 Group: System Environment/Kernel
 Vendor: LLNL
-Source: %{name}-%{version}-%{release}.tgz
+Source: %{name}-%{version}.tgz
 BuildRoot: %{_tmppath}/%{name}-%{version}
 BuildArchitectures: noarch
 Requires: rpm, yum, coreutils, bash
