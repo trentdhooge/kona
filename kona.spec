@@ -25,7 +25,7 @@ Requires: grub
 Tool for creating chrooted images from rpms or yum
 
 %prep
-%setup -q -n %{name}-%{version}-%{release}
+%setup -q -n %{name}-%{version}
 
 %build
 
