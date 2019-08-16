@@ -203,6 +203,16 @@ make_nbd_img()
   fi
 }
 
+# Usage: make_container_img
+# Create container, mount it on ${image}
+make_container_img()
+{
+  my_container=$(buildah from scratch)
+  my_mount=$(buildah mount ${my_container})
+  ln -s ${my_mount} ${inst_dir}/${image}
+  # buildah unmount ${my_container}
+  # buildah rename ${my_container} mybash
+}
 
 # Usage: make_image_dir
 # Create directories that are required to build image
@@ -223,6 +233,14 @@ make_image_dir()
 init_rpmdb()
 {
   rpm --root ${inst_dir}/${image} --initdb
+}
+#
+# Usage: passwd_group
+# Copy in passwd and group file from build host 
+# to keep uid gid consistent
+passwd_group()
+{
+  cp -a /etc/{passwd,group,login.defs} ${inst_dir}/${image}/etc
 }
 
 # Usage: check_nodev
@@ -269,6 +287,7 @@ prep_image_dir()
   make_qemu_img || return $EXIT_FAIL
   make_nbd_img || return $EXIT_FAIL
   make_image_dir
+  passwd_group
   mount_proc
   check_nodev
   make_image_files
@@ -298,6 +317,12 @@ image_clean_up()
   # Make sure ldconfig is run
   if ( chroot ${inst_dir}/${image} which ldconfig > /dev/null 2>&1 ) ; then
     chroot ${inst_dir}/${image} ldconfig
+  fi
+  
+  # Make sure shadow files are good
+  if ( test -e ${inst_dir}/${image}/sbin/pwconv ) ; then
+    chroot ${inst_dir}/${image} /sbin/pwconv
+    chroot ${inst_dir}/${image} /sbin/grpconv
   fi
 
   # Make sure nothing is running in the image

@@ -1,6 +1,6 @@
 Name: kona
 Version: 1
-Release: 17%{?dist}
+Release: 18%{?dist}
 Summary: Tool for creating chrooted images from rpms or yum
 License: GPL
 Group: System Environment/Kernel
@@ -61,6 +61,9 @@ rm -rf $RPM_BUILD_ROOT
 %attr(0444,root,root) /usr/share/kona/GPL.txt
 
 %changelog
+* Fri Aug 16 2019 Trent D'Hooge <tdhooge@llnl.gov>
+  - copy in passwd and group shadow before image build
+
 * Mon May 18 2015 Trent D'Hooge <tdhooge@llnl.gov>
   - added nbd support from silva50@llnl.gov
 
