@@ -210,8 +210,11 @@ make_container_img()
   my_container=$(buildah from scratch)
   my_mount=$(buildah mount ${my_container})
   ln -s ${my_mount} ${inst_dir}/${image}
+  #yum --disablerepo=* --enablerepo=TOSS* --installroot ${my_mount} install toss-release bash yum rpm --nogpg
+  # buildah commit  ${my_container} tossrelease
   # buildah unmount ${my_container}
-  # buildah rename ${my_container} mybash
+  # buildah rm ${my_container}
+  # podman run -it tossrelease /bin/bash
 }
 
 # Usage: make_image_dir

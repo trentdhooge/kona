@@ -196,6 +196,11 @@ fi
 
 if [ -n "${releasever}" ] ; then
   yum_options="${yum_options} --releasever=${releasever}"
+elif ( which dnf > /dev/null ) ; then
+  # RHEL8 hack to get this release version and not spend time waiting on yum
+  # and set some other RHEL 8 specific options
+  releasever=`python3 -c 'import dnf; b = dnf.Base(); print("%s" % (b.conf.releasever))'`
+  yum_options="${yum_options} --releasever=${releasever} --setopt=module_platform_id=platform:el8 -e 1"
 else
   # Hack to get this release version and not spend time waiting on yum
   releasever=`python -c 'import yum, pprint; yb = yum.YumBase(); pprint.pprint(yb.conf.yumvar, width=1)' |awk -F"'" '$2 == "releasever" {print $4}'`
