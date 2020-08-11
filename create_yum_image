@@ -153,7 +153,8 @@ check_root || exit $?
 # using differnet yum repo if defined by user
 #############################################
 if [ -z "${repodir}" ] && [ -n "${yum_include}" ] ; then 
-  echo "include=${yum_include}" > ${yumconf}
+  echo "[main]" > ${yumconf}
+  cat ${yum_include} >> ${yumconf}
 # using directory that has had createrepo run in it
 # if requested by user
 elif [ -n "${repodir}" ] ; then
@@ -201,10 +202,6 @@ elif ( which dnf > /dev/null ) ; then
   # and set some other RHEL 8 specific options
   releasever=`python3 -c 'import dnf; b = dnf.Base(); print("%s" % (b.conf.releasever))'`
   yum_options="${yum_options} --releasever=${releasever} --setopt=module_platform_id=platform:el8 -e 1"
-else
-  # Hack to get this release version and not spend time waiting on yum
-  releasever=`python -c 'import yum, pprint; yb = yum.YumBase(); pprint.pprint(yb.conf.yumvar, width=1)' |awk -F"'" '$2 == "releasever" {print $4}'`
-  yum_options="${yum_options} --releasever=${releasever}"
 fi
 
 ################
@@ -212,9 +209,9 @@ fi
 # make new cache
 ################
 if [ -n "${cache}" ] ; then
-  yum -d 0 clean all
-  yum -d 0 ${yum_options} clean all
-  yum -d 0 ${yum_options} makecache
+  dnf -d 0 clean all
+  dnf -d 0 ${yum_options} clean all
+  dnf -d 0 ${yum_options} makecache
 fi
 
 ##################
@@ -224,15 +221,15 @@ if [ ! -z "${list}" ] ; then
   if [ "${list}" == "repos" ] ; then
     echo ""
     echo "Available versions are:"
-    yum ${yum_options} -y repolist
+    dnf ${yum_options} -y repolist
     exit $?
   elif [ "${list}" == "groups" ] ; then
     echo ""
     echo "Available groups in YUM repo ${version} are:"
-    repoquery ${yum_options} -g -a | awk '{print $1}'
+    dnf ${yum_options} -y group list
     exit $?
   elif [ "${list}" == "rpms" ] ; then
-    repoquery ${yum_options} --nvr -a | sort
+    dnf ${yum_options} -y list
     exit $?
   else 
     die "$usage"
@@ -261,6 +258,7 @@ fi
 ##################
 if [ -n "${install_size}" ] ; then
     if [ -n "${install_rpm}" ] ; then
+  #releasever=`python3 -c 'import dnf; p = dnf.package.Package; print("%s" % (p.))'`
         space_required=`repoquery --qf='%{installedsize}' ${packages} | \
                         awk '{sum+=$1} END {printf("%d\n",sum/1024/1024)}'`
     else
@@ -283,7 +281,7 @@ prep_image_dir ${image} || exit $?
 #################
 #create the image
 #################
-yum ${yum_options} --nogpg -y --installroot ${imagedir} ${packages}
+dnf ${yum_options} --nogpg -y --installroot ${imagedir} ${packages}
 
 ##########
 # Clean up

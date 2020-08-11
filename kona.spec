@@ -8,16 +8,9 @@ Vendor: LLNL
 Source: %{name}-%{version}.tgz
 BuildRoot: %{_tmppath}/%{name}-%{version}
 BuildArchitectures: noarch
-Requires: rpm, yum, coreutils, bash
-%ifarch x86_64 ppc64le
-Requires qemu-img
-%endif
-
-%if 0%{rhel} > 6
+Requires: rpm, dnf, coreutils, bash
+Requires: qemu-img
 Requires: grub2
-%else
-Requires: grub
-%endif
 
 %define __spec_install_post /usr/lib/rpm/brp-compress || :
 
@@ -34,7 +27,7 @@ mkdir -p $RPM_BUILD_ROOT/usr/bin $RPM_BUILD_ROOT/etc/sysconfig
 mkdir -p $RPM_BUILD_ROOT/etc/kona
 mkdir -p $RPM_BUILD_ROOT/usr/share/kona
 install -m 555 kona.sysconfig $RPM_BUILD_ROOT/etc/sysconfig/kona
-install -m 555 create_rpm_image $RPM_BUILD_ROOT/usr/bin
+#install -m 555 create_rpm_image $RPM_BUILD_ROOT/usr/bin
 install -m 555 create_yum_image $RPM_BUILD_ROOT/usr/bin
 cp qemu/* $RPM_BUILD_ROOT/usr/share/kona
 touch $RPM_BUILD_ROOT/etc/kona/defaults
@@ -45,7 +38,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %files 
 %defattr(-,root,root)
-%attr(0555,root,root) /usr/bin/create_rpm_image
+#%attr(0555,root,root) /usr/bin/create_rpm_image
 %attr(0555,root,root) /usr/bin/create_yum_image
 %attr(0555,root,root) /etc/sysconfig/kona
 %attr(0755,root,root) %dir /etc/kona
@@ -61,6 +54,11 @@ rm -rf $RPM_BUILD_ROOT
 %attr(0444,root,root) /usr/share/kona/GPL.txt
 
 %changelog
+* Tue Aug 11 2020 Trent D'Hooge <tdhooge@llnl.gov>
+  - assume dnf, change commands to use dnf and fix options
+  - include no longer supported in repo .conf file. cat file in instead
+    when defining a repo file
+
 * Fri Aug 16 2019 Trent D'Hooge <tdhooge@llnl.gov>
   - copy in passwd and group shadow before image build
 
