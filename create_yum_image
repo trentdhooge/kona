@@ -270,6 +270,11 @@ prep_image_dir ${image} || exit $?
 #################
 #create the image
 #################
+# need rpm installed first if doing a big groupinstall
+if ( echo "${yum_options}" | grep -q -w groupinstall ) ; then
+  r_yum_options=`echo ${yum_options} | sed -e s/groupinstall/install/g`
+  dnf ${r_yum_options} --nogpg -y --installroot ${imagedir} rpm
+fi
 dnf ${yum_options} --nogpg -y --installroot ${imagedir} ${packages}
 
 ##########
