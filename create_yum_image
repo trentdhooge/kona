@@ -268,7 +268,7 @@ fi
 ##################
 if [ -n "${install_size}" ] ; then
     my_temp_dir=`mktemp -p /tmp -d kona.XXXXXX`
-    dnf --installroot ${my_temp_dir} ${yum_options} --assumeno ${packages} |grep "Installed size" | sed -e s/[[:space:]]//g | awk -F":" '{print $2}'
+    dnf --nogpg --installroot ${my_temp_dir} ${yum_options} --assumeno ${packages} | awk '/ size: / {SUM+=$3}END{print SUM$4}'
     rm --one-file-system -rf ${my_temp_dir}
     exit 0
 fi
