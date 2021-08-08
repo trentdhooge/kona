@@ -249,6 +249,17 @@ if [ -n "${install_rpm}" ] ; then
 elif [ -n "${update}" ] ; then
      yum_options="${yum_options} update"
 else
+     # See if the groups are available
+     av_groups=`dnf ${yum_options} grouplist |grep -v "Groups:"`
+     for checkit in ${packages}
+     do
+       if ( ! echo "$av_groups" | grep -q "$checkit" ) ; then
+          echo ""
+          echo "$checkit is not a valid yum group"
+          echo ""
+          exit 1
+       fi
+     done
      yum_options="${yum_options} groupinstall"
 fi
 
