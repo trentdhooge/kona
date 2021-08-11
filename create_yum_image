@@ -252,7 +252,7 @@ else
      # See if the groups are available
      for checkit in ${packages}
      do
-       if ( ! dnf group info ${checkit} |egrep -q "^Group" ) ; then
+       if ( ! dnf group info ${checkit} |egrep -q "^Group.*${checkit}.*" ) ; then
           echo ""
           echo "$checkit is not a valid yum group"
           echo ""
@@ -267,8 +267,13 @@ fi
 ##################
 if [ -n "${install_size}" ] ; then
     my_temp_dir=`mktemp -p /tmp -d kona.XXXXXX`
-    dnf --nogpg --installroot ${my_temp_dir} ${yum_options} --assumeno ${packages} | awk '/ size: / {SUM+=$3}END{print SUM$4}'
+    my_real_size=`dnf --nogpg --installroot ${my_temp_dir} ${yum_options} --assumeno ${packages} | awk '/ size: / {SUM+=$3}END{print SUM$4}'`
     rm --one-file-system -rf ${my_temp_dir}
+    my_unit=`echo ${my_real_size} | sed -ne 's/.*\([a-zA-Z]\).*/\1/p'`
+    my_size=`echo ${my_real_size} | sed -e 's/[a-zA-Z]//'`
+    # give 20% buffer
+    my_new_size=`echo "${my_size} * 1.2" | bc -l`
+    echo "${my_new_size}${my_unit}"
     exit 0
 fi
 
