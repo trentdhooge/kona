@@ -5,7 +5,7 @@
 ##################################################################
 umask 022
 
-PATH=/sbin:/bin:/usr/bin:/usr/sbin:/tmp
+PATH=/sbin:/bin:/usr/bin:/usr/sbin
 
 # Source funtions
 . /etc/sysconfig/kona
