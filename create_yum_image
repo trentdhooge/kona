@@ -272,7 +272,7 @@ if [ -n "${install_size}" ] ; then
     my_unit=`echo ${my_real_size} | sed -ne 's/.*\([a-zA-Z]\).*/\1/p'`
     my_size=`echo ${my_real_size} | sed -e 's/[a-zA-Z]//'`
     # give 20% buffer
-    my_new_size=`echo "${my_size} * 1.2" | bc -l`
+    my_new_size=`echo "${my_size} * 1.5" | bc -l`
     echo "${my_new_size}${my_unit}"
     exit 0
 fi
