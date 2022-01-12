@@ -252,7 +252,7 @@ else
      # See if the groups are available
      for checkit in ${packages}
      do
-       if ( ! dnf group info ${checkit} |egrep -q "^Group.*${checkit}.*" ) ; then
+       if ( ! dnf group ${yum_options} info ${checkit} |egrep -q "^Group.*${checkit}.*" ) ; then
           echo ""
           echo "$checkit is not a valid yum group"
           echo ""
