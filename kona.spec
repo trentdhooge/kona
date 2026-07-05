@@ -27,7 +27,6 @@ mkdir -p $RPM_BUILD_ROOT/usr/bin $RPM_BUILD_ROOT/etc/sysconfig
 mkdir -p $RPM_BUILD_ROOT/etc/kona
 mkdir -p $RPM_BUILD_ROOT/usr/share/kona
 install -m 555 kona.sysconfig $RPM_BUILD_ROOT/etc/sysconfig/kona
-#install -m 555 create_rpm_image $RPM_BUILD_ROOT/usr/bin
 install -m 555 create_yum_image $RPM_BUILD_ROOT/usr/bin
 install -m 555 create_block_images $RPM_BUILD_ROOT/usr/bin
 cp qemu/* $RPM_BUILD_ROOT/usr/share/kona
@@ -40,7 +39,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %files 
 %defattr(-,root,root)
-#%attr(0555,root,root) /usr/bin/create_rpm_image
+%attr(0555,root,root) /usr/bin/create_block_images
 %attr(0555,root,root) /usr/bin/create_yum_image
 %attr(0555,root,root) /etc/sysconfig/kona
 %attr(0755,root,root) %dir /etc/kona
