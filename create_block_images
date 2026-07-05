@@ -64,6 +64,7 @@ rhelver=$(get_releasever)
 
 # dnf options
 yum_options="--releasever=${rhelver} --setopt=reposdir=/etc/yum.repos.d ${broke} ${nogpg}"
+default_yum_options="${yum_options}"
 
 # all the images that need built
 for node in $(yq '.images[] | .node_type' ${yml_file})
@@ -72,16 +73,16 @@ do
     unset rpms
     export image=${node}
     # unset repofrompath if set
-    yum_options=$(echo $yum_options |sed  s/--repofrompath.*//)
+    yum_options="${default_yum_options}"
     groups=$(yq '.images[] | select(.node_type == strenv(image)) | .yum_groups[]' ${yml_file})
     rpms=$(yq '.images[] | select(.node_type == strenv(image)) | .rpms[]' ${yml_file})
     repos=$(yq '.images[] | select(.node_type == strenv(image)) | .repos[]' ${yml_file})
 
     # build up repos to add in
-    for a in $repos
+    for repo in $repos
     do 
-        repo_name=$(echo $a | tr -s '/' '_'  | cut -d':' -f2)
-	yum_options="${yum_options} --repofrompath ${repo_name},$a"
+        repo_name=$(echo ${repo} | tr -s '/' '_'  | cut -d':' -f2)
+	yum_options="${yum_options} --repofrompath ${repo_name},${repo}"
     done
 
     ##################
