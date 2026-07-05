@@ -1,18 +1,21 @@
+---
+
+# node_type is required
+# yum_group or rpms is required
+
 images:
   - node_type: "compute"
     description: "High-performance compute node for cluster workloads"
     yum_groups:
-      - "Core"
       - "Base"
+      - "Slurm"
     rpms:
       - "amdgpu"
+    repos: # add repos that may not be default
+      - "file:///repo/redhat/RHEL10-latest/x86_64"
+      - "https://toss.llnl.gov/toss/6/current-doca/x86_64"
 
-  - node_type: "primgmt"
-    description: "Primary mgmt node"
+  - node_type: "rps"
+    description: "RPS mgmt node"
     yum_groups:
-      - "Base"
-      - "Opt"
-      - "Slurm"
-      - "Lustre_2.15"
-    rpms:
-      - "NessusAgent"
+      - "Rps"

@@ -62,14 +62,27 @@ check_root || exit $?
 # RHEL Version
 rhelver=$(get_releasever)
 
+# dnf options
+yum_options="--releasever=${rhelver} --setopt=reposdir=/etc/yum.repos.d ${broke} ${nogpg}"
+
 # all the images that need built
 for node in $(yq '.images[] | .node_type' ${yml_file})
 do
     unset groups
     unset rpms
     export image=${node}
+    # unset repofrompath if set
+    yum_options=$(echo $yum_options |sed  s/--repofrompath.*//)
     groups=$(yq '.images[] | select(.node_type == strenv(image)) | .yum_groups[]' ${yml_file})
     rpms=$(yq '.images[] | select(.node_type == strenv(image)) | .rpms[]' ${yml_file})
+    repos=$(yq '.images[] | select(.node_type == strenv(image)) | .repos[]' ${yml_file})
+
+    # build up repos to add in
+    for a in $repos
+    do 
+        repo_name=$(echo $a | tr -s '/' '_'  | cut -d':' -f2)
+	yum_options="${yum_options} --repofrompath ${repo_name},$a"
+    done
 
     ##################
     # size info
@@ -77,30 +90,35 @@ do
     my_temp_dir=`mktemp -p /tmp -d kona.XXXXXX`
 
     if [ -n "${groups}" ] ; then
-        nbd_size=`dnf --releasever=${rhelver} --installroot ${my_temp_dir} --assumeno group install ${groups} | awk '/^Installed size: / {print $3*25$4}'`
+        nbd_size=`dnf ${yum_options} --installroot ${my_temp_dir} \
+		--assumeno group install ${groups} \
+		| awk '/^Installed size: / {print $3*25$4}'
         rm --one-file-system -rf ${my_temp_dir}
     elif [ -n "${rpms}" ] ; then
-        nbd_size=`dnf --releasever=${rhelver} --installroot ${my_temp_dir} --assumeno install ${groups} | awk '/^Installed size: / {print $3*2$4}'`
+        nbd_size=`dnf ${yum_options} --installroot ${my_temp_dir} \
+		--assumeno install ${groups} \
+		| awk '/^Installed size: / {print $3*2$4}'`
         rm --one-file-system -rf ${my_temp_dir}
     else
         rm --one-file-system -rf ${my_temp_dir}
 	echo "no groups or rpms defined" && exit 1
     fi
 
-    ##########################################
-    # get the image diretory ready for install
-    ##########################################
-    # this will adjust the image name
+    # adjust the image name
     . /etc/kona/defaults
     imagedir=${inst_dir}/${image}
+    # create file to be formated and mount it on ${imagedir}
     make_nbd_img
+    # cp passwd and group file to ${imagedir}/etc
+    # to keep UID and GUID consistent
+    passwd_group
 
-    [ -n "${groups}" ] && dnf --releasever=${rhelver} --setopt=reposdir=/etc/yum.repos.d -y --installroot ${imagedir} group install ${groups}
-    [ -n "${rpms}" ] && dnf --releasever=${rhelver} --setopt=reposdir=/etc/yum.repos.d -y --installroot ${imagedir} install ${rpms}
+    [ -n "${groups}" ] && dnf ${yum_options} -y --installroot ${imagedir} \
+	    group install ${groups}
+    [ -n "${rpms}" ] && dnf ${yum_options} -y --installroot ${imagedir} \
+	    install ${rpms}
 
-    ##########
     # Clean up
-    ##########
     image_clean_up
 
 done

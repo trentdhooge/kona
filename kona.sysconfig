@@ -249,6 +249,7 @@ init_rpmdb()
 # to keep uid gid consistent
 passwd_group()
 {
+  mkdir -p ${inst_dir}/${image}/etc
   cp -a /etc/{passwd,group,login.defs} ${inst_dir}/${image}/etc
 }
 
