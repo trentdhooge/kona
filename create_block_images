@@ -4,21 +4,19 @@ umask 022
 
 PATH=/sbin:/bin:/usr/bin:/usr/sbin
 
-# Source funtions
-. /etc/sysconfig/kona
-. /etc/kona/defaults
-
 declare -r prog=${0##*/}
-declare -r long_opts="yml:help"
-declare -r short_opts="y:h"
+declare -r long_opts="yml:,skip-broken,nogpg,help"
+declare -r short_opts="y:snh"
 declare -r getopt="/usr/bin/getopt -u"
 declare -r usage="\
 \n\
 \n\
 USAGE: $prog [OPTIONS] yml file
 \n\
-   -y, --yml file               yml file with image information\n\
-   -h, --help                   Display usage message\n"
+   -y, --yml file            yml file with image information\n\
+   -n, --nogpg               pass --nogpg to dnf\n\
+   -s, --skip-broken         pass --skip-broken to dnf\n\
+   -h, --help                Display usage message\n"
 
 
 die () {
@@ -38,14 +36,22 @@ fi
 eval set -- "$GETOPT"
 while true; do
     case "$1" in
-        -y|--yml)          yml_file=$2           ; shift 2 ;;
-        -h|--help)         die "$usage"               ;;
-        --)                shift ; break              ;;
-        *)                 die "$usage"               ;;
+        -y|--yml)          yml_file=$2         ; shift 2 ;;
+        -s|--skip-broken)  broke=--skip-broken ; shift   ;;
+        -n|--nogpg)        nogpg=--nogpg       ; shift   ;;
+        -h|--help)         die "$usage"                  ;;
+        --)                shift ; break                 ;;
+        *)                 die "$usage"                  ;;
     esac
 done
 
-[ -r ${yml_file} ] || echo "Can't find ${yml_file}" && exit 1
+if [ ! -r ${yml_file} ] ; then
+    echo "Can't find ${yml_file}"
+    die "$usage"
+fi
+
+# Source funtions
+. /etc/sysconfig/kona
 
 #####################################################
 # Make sure you are root, else there will be problems
@@ -53,16 +59,8 @@ done
 check_root || exit $?
 
 ##########################################
-imagedir=${inst_dir}/${image}
-
-##########################################
 # RHEL Version
 rhelver=$(get_releasever)
-
-##########################################
-# get the image diretory ready for install
-##########################################
-prep_image_dir ${image} || exit $?
 
 # all the images that need built
 for node in $(yq '.images[] | .node_type' ${yml_file})
@@ -79,27 +77,30 @@ do
     my_temp_dir=`mktemp -p /tmp -d kona.XXXXXX`
 
     if [ -n "${groups}" ] ; then
-        nbd_size==`dnf --installroot ${my_temp_dir} --assumeno ${groups} | awk '/^Installed size: / {print $3*1.5$4}'`
+        nbd_size=`dnf --releasever=${rhelver} --installroot ${my_temp_dir} --assumeno group install ${groups} | awk '/^Installed size: / {print $3*25$4}'`
         rm --one-file-system -rf ${my_temp_dir}
-    elif [ -n "${rpms}" ] then
-        nbd_size==`dnf --installroot ${my_temp_dir} --assumeno ${groups} | awk '/^Installed size: / {print $3*1.5$4}'`
+    elif [ -n "${rpms}" ] ; then
+        nbd_size=`dnf --releasever=${rhelver} --installroot ${my_temp_dir} --assumeno install ${groups} | awk '/^Installed size: / {print $3*2$4}'`
         rm --one-file-system -rf ${my_temp_dir}
     else
         rm --one-file-system -rf ${my_temp_dir}
 	echo "no groups or rpms defined" && exit 1
     fi
 
+    ##########################################
+    # get the image diretory ready for install
+    ##########################################
+    # this will adjust the image name
+    . /etc/kona/defaults
+    imagedir=${inst_dir}/${image}
+    make_nbd_img
+
     [ -n "${groups}" ] && dnf --releasever=${rhelver} --setopt=reposdir=/etc/yum.repos.d -y --installroot ${imagedir} group install ${groups}
     [ -n "${rpms}" ] && dnf --releasever=${rhelver} --setopt=reposdir=/etc/yum.repos.d -y --installroot ${imagedir} install ${rpms}
 
+    ##########
+    # Clean up
+    ##########
+    image_clean_up
+
 done
-
-##########
-# Clean up
-##########
-image_clean_up ${image}
-
-#########################################
-# Let people know where the qemu image is
-#########################################
-echo "iscsi image is located at ${imagedir}.img"

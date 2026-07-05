@@ -259,9 +259,9 @@ check_nodev()
 {
   baseimage="${inst_dir}/${image}"
   while ( test -n ${baseimage} ) ; do
-    if ( mount |egrep -q "[[:space:]]${baseimage}[[:space:]]" ) 
+    if ( mount |grep -E -q "[[:space:]]${baseimage}[[:space:]]" ) 
     then
-      if ( mount |egrep -q "[[:space:]]${baseimage}[[:space:]].*nodev.*" ) 
+      if ( mount |grep -E -q "[[:space:]]${baseimage}[[:space:]].*nodev.*" ) 
       then
         mount -o remount,dev ${baseimage}
         nodev=${baseimage}
@@ -313,9 +313,9 @@ image_clean_up()
   [ -e ${inst_dir}/${image}/var/log/lastlog ] && \
   cat /dev/null > ${inst_dir}/${image}/var/log/lastlog
 
-  # clean up cache from yum
-  rm -rf ${inst_dir}/${image}/var/cache/yum/*
-  rm -rf ${inst_dir}/${image}/var/lib/yum/yumdb/*
+  # clean up cache from dnf
+  rm -rf ${inst_dir}/${image}/var/cache/dnf/*
+  rm -rf ${inst_dir}/${image}/var/lib/dnf/*
 
   # make sure rpm cache is ok
   rm -f ${inst_dir}/${image}/var/lib/rpm/__*
