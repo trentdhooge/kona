@@ -1,6 +1,6 @@
 Name: kona
 Version: 1
-Release: 29%{?dist}
+Release: 30%{?dist}
 Summary: Tool for creating chrooted images from rpms or yum
 License: GPL
 Group: System Environment/Kernel
@@ -8,7 +8,7 @@ Vendor: LLNL
 Source: %{name}-%{version}.tgz
 BuildRoot: %{_tmppath}/%{name}-%{version}
 BuildArchitectures: noarch
-Requires: rpm, dnf, coreutils, bash
+Requires: rpm, dnf, coreutils, bash, yq
 Requires: qemu-img
 Requires: grub2
 
@@ -29,9 +29,11 @@ mkdir -p $RPM_BUILD_ROOT/usr/share/kona
 install -m 555 kona.sysconfig $RPM_BUILD_ROOT/etc/sysconfig/kona
 #install -m 555 create_rpm_image $RPM_BUILD_ROOT/usr/bin
 install -m 555 create_yum_image $RPM_BUILD_ROOT/usr/bin
+install -m 555 create_block_images $RPM_BUILD_ROOT/usr/bin
 cp qemu/* $RPM_BUILD_ROOT/usr/share/kona
 touch $RPM_BUILD_ROOT/etc/kona/defaults
 cp GPL.txt $RPM_BUILD_ROOT/usr/share/kona
+cp images.yml $RPM_BUILD_ROOT/usr/share/kona
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -52,6 +54,7 @@ rm -rf $RPM_BUILD_ROOT
 %attr(0644,root,root) /usr/share/kona/grub.conf
 %attr(0444,root,root) /usr/share/kona/fstab
 %attr(0444,root,root) /usr/share/kona/GPL.txt
+%attr(0444,root,root) /usr/share/kona/images.yml
 
 %changelog
 * Tue Aug 11 2020 Trent D'Hooge <tdhooge@llnl.gov>

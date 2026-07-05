@@ -51,6 +51,12 @@ check_root()
   fi
 }
 
+# releasever
+get_releasever()
+{
+  python3 -c 'import dnf; b = dnf.Base(); print("%s" % (b.conf.releasever))'
+}
+
 # Usage: umount_proc image
 # Make sure proc and dev is not mounted in the image directory
 umount_proc()

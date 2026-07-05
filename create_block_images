@@ -1,0 +1,105 @@
+#!/bin/bash
+
+umask 022
+
+PATH=/sbin:/bin:/usr/bin:/usr/sbin
+
+# Source funtions
+. /etc/sysconfig/kona
+. /etc/kona/defaults
+
+declare -r prog=${0##*/}
+declare -r long_opts="yml:help"
+declare -r short_opts="y:h"
+declare -r getopt="/usr/bin/getopt -u"
+declare -r usage="\
+\n\
+\n\
+USAGE: $prog [OPTIONS] yml file
+\n\
+   -y, --yml file               yml file with image information\n\
+   -h, --help                   Display usage message\n"
+
+
+die () {
+    echo -e "$prog: $@"
+    exit 1
+}
+
+[ $# -lt 1 ] && die "$usage"
+
+
+GETOPT=`$getopt -o $short_opts -l $long_opts -n $prog -- $@`
+
+if [ $? != 0 ] ; then
+    die "$usage"
+fi
+
+eval set -- "$GETOPT"
+while true; do
+    case "$1" in
+        -y|--yml)          yml_file=$2           ; shift 2 ;;
+        -h|--help)         die "$usage"               ;;
+        --)                shift ; break              ;;
+        *)                 die "$usage"               ;;
+    esac
+done
+
+[ -r ${yml_file} ] || echo "Can't find ${yml_file}" && exit 1
+
+#####################################################
+# Make sure you are root, else there will be problems
+#####################################################
+check_root || exit $?
+
+##########################################
+imagedir=${inst_dir}/${image}
+
+##########################################
+# RHEL Version
+rhelver=$(get_releasever)
+
+##########################################
+# get the image diretory ready for install
+##########################################
+prep_image_dir ${image} || exit $?
+
+# all the images that need built
+for node in $(yq '.images[] | .node_type' ${yml_file})
+do
+    unset groups
+    unset rpms
+    export image=${node}
+    groups=$(yq '.images[] | select(.node_type == strenv(image)) | .yum_groups[]' ${yml_file})
+    rpms=$(yq '.images[] | select(.node_type == strenv(image)) | .rpms[]' ${yml_file})
+
+    ##################
+    # size info
+    ##################
+    my_temp_dir=`mktemp -p /tmp -d kona.XXXXXX`
+
+    if [ -n "${groups}" ] ; then
+        nbd_size==`dnf --installroot ${my_temp_dir} --assumeno ${groups} | awk '/^Installed size: / {print $3*1.5$4}'`
+        rm --one-file-system -rf ${my_temp_dir}
+    elif [ -n "${rpms}" ] then
+        nbd_size==`dnf --installroot ${my_temp_dir} --assumeno ${groups} | awk '/^Installed size: / {print $3*1.5$4}'`
+        rm --one-file-system -rf ${my_temp_dir}
+    else
+        rm --one-file-system -rf ${my_temp_dir}
+	echo "no groups or rpms defined" && exit 1
+    fi
+
+    [ -n "${groups}" ] && dnf --releasever=${rhelver} --setopt=reposdir=/etc/yum.repos.d -y --installroot ${imagedir} group install ${groups}
+    [ -n "${rpms}" ] && dnf --releasever=${rhelver} --setopt=reposdir=/etc/yum.repos.d -y --installroot ${imagedir} install ${rpms}
+
+done
+
+##########
+# Clean up
+##########
+image_clean_up ${image}
+
+#########################################
+# Let people know where the qemu image is
+#########################################
+echo "iscsi image is located at ${imagedir}.img"

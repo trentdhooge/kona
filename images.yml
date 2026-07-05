@@ -1,0 +1,18 @@
+images:
+  - node_type: "compute"
+    description: "High-performance compute node for cluster workloads"
+    yum_groups:
+      - "Core"
+      - "Base"
+    rpms:
+      - "amdgpu"
+
+  - node_type: "primgmt"
+    description: "Primary mgmt node"
+    yum_groups:
+      - "Base"
+      - "Opt"
+      - "Slurm"
+      - "Lustre_2.15"
+    rpms:
+      - "NessusAgent"

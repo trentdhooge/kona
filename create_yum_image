@@ -197,10 +197,8 @@ fi
 if [ -n "${releasever}" ] ; then
   yum_options="${yum_options} --releasever=${releasever}"
 elif ( which dnf > /dev/null ) ; then
-  # RHEL8 hack to get this release version and not spend time waiting on yum
-  # and set some other RHEL 8 specific options
-  releasever=`python3 -c 'import dnf; b = dnf.Base(); print("%s" % (b.conf.releasever))'`
-  yum_options="${yum_options} --releasever=${releasever} --setopt=module_platform_id=platform:el8 -e 1"
+  releasever=$(get_releasever)
+  yum_options="${yum_options} --releasever=${releasever}"
 fi
 
 ################
@@ -267,13 +265,9 @@ fi
 ##################
 if [ -n "${install_size}" ] ; then
     my_temp_dir=`mktemp -p /tmp -d kona.XXXXXX`
-    my_real_size=`dnf --nogpg --installroot ${my_temp_dir} ${yum_options} --assumeno ${packages} | awk '/ size: / {SUM+=$3}END{print SUM$4}'`
+    my_size=`dnf --nogpg --installroot ${my_temp_dir} ${yum_options} --assumeno ${packages} | awk '/^Installed size: / {print $3*1.5$4}'`
     rm --one-file-system -rf ${my_temp_dir}
-    my_unit=`echo ${my_real_size} | sed -ne 's/.*\([a-zA-Z]\).*/\1/p'`
-    my_size=`echo ${my_real_size} | sed -e 's/[a-zA-Z]//'`
-    # give 20% buffer
-    my_new_size=`echo "${my_size} * 1.5" | bc -l`
-    echo "${my_new_size}${my_unit}"
+    echo "${my_size}"
     exit 0
 fi
 
