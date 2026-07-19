@@ -377,8 +377,13 @@ EOF
       popd > /dev/null 2>&1
     fi
 
-    #mount -o remount,ro ${inst_dir}/${image}
-    umount ${inst_dir}/${image}
+    # give the umount a few trys, sometimes fails
+    sync
+    for a in `seq 1 10`
+    do
+      umount ${inst_dir}/${image} && break
+      sleep 6
+    done
   fi
 
   # remount directory with nodev option if required
