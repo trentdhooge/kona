@@ -379,7 +379,7 @@ EOF
 
     # give the umount a few trys, sometimes fails
     sync
-    for a in `seq 1 10`
+    for a in `seq 1 20`
     do
       umount ${inst_dir}/${image} && break
       sleep 6
